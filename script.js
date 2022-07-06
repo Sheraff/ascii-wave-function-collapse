@@ -152,7 +152,7 @@ function draw(pre, array) {
 	for(let y = 0; y < GRID_SIZE[1]; y++) {
 		for(let x = 0; x < GRID_SIZE[0]; x++) {
 			const cell = getCellFromXY(array, x, y)
-			text += cell.tile?.symbol || '~'
+			text += cell.tile?.symbol || ' '
 		}
 		text += '\n'
 	}
