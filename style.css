@@ -1,0 +1,7 @@
+body {
+	margin: 0;
+	background: #051016;
+	color: white;
+	touch-action: none;
+	font-size: min(3vw, 3.9vh);
+}
