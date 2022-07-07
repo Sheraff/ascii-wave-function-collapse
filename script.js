@@ -10,15 +10,16 @@ const NEIGHBORS = [
 const pre = document.querySelector('pre')
 if(!pre)
 	throw new Error('No pre element found')
+start(pre)
 
-void function(pre) {
+function start(pre) {
 	const array = createNewGrid(GRID_SIZE)
 	const backtrack = {
-		cursor: 1,
+		cursor: 0,
 		stack: [],
 	}
 	loop(pre, array, backtrack)
-}(pre)
+}
 
 async function loop(pre, array, backtrack) {
 	const cells = getMinEntropyCells(array)
@@ -26,17 +27,21 @@ async function loop(pre, array, backtrack) {
 		return
 	const randomCell = cells[Math.floor(Math.random() * cells.length)]
 	try {
-		const randomOption = findSuitableOption(array, randomCell, backtrack)
-		randomCell.tile = randomOption
-		collapseNeighbors(array, randomCell)
+		assignSuitableOption(array, randomCell, backtrack)
+		collapseNeighbors(array, randomCell, backtrack)
+		backtrack.cursor = Math.max(0, backtrack.cursor - 0.1)
 		draw(pre, array)
 		await frame()
 		loop(pre, array, backtrack)
 	} catch (error) {
-		if (error instanceof Error)
-			throw error
-		console.log('backtracking', backtrack.cursor)
-		loop(pre, error, backtrack)
+		if(backtrack.stack.length > 0) {
+			const reset = resetToCursor(backtrack)
+			console.log('backtracking', Math.round(backtrack.cursor), error.message)
+			loop(pre, reset, backtrack)
+		} else {
+			console.log('restarting', error.message)
+			start(pre)
+		}
 	}
 }
 
@@ -44,7 +49,14 @@ function frame() {
 	return new Promise(resolve => requestAnimationFrame(resolve))
 }
 
-function collapseNeighbors(array, cell, stack = []) {
+function resetToCursor(backtrack) {
+	backtrack.cursor += 1
+	const revertCount = Math.min(Math.floor(backtrack.cursor), backtrack.stack.length)
+	const [reset] = backtrack.stack.splice(backtrack.stack.length - revertCount)
+	return JSON.parse(reset)
+}
+
+function collapseNeighbors(array, cell, backtrack, stack = []) {
 	for (let i = 0; i < NEIGHBORS.length; i++) {
 		const vector = NEIGHBORS[i]
 		const x = cell.x + vector[0]
@@ -61,49 +73,36 @@ function collapseNeighbors(array, cell, stack = []) {
 		const compatibleOptions = neighbor.accepts[mirrorIndex].filter(
 			option => possibilities.includes(option)
 		)
-		if (compatibleOptions.length === 0) {
-			console.log({neighbor, cell})
+		if (compatibleOptions.length === 0)
 			throw new Error('Invalid neighbor')
-		}
-		if (neighbor.accepts[mirrorIndex].length !== compatibleOptions.length)
+		const entropyDifference = neighbor.accepts[mirrorIndex].length - compatibleOptions.length
+		if (entropyDifference !== 0)
 			stack.push(neighbor)
 		neighbor.accepts[mirrorIndex] = compatibleOptions
-		neighbor.entropy = neighbor.accepts.reduce(
-			(sum, options) => sum + options.length,
-			0
-		)
+		neighbor.entropy -= entropyDifference
 		// if (neighbor.entropy === 4)
-		// 	neighbor.tile = findSuitableOption(array, neighbor)[0]
+		// 	assignSuitableOption(array, neighbor, backtrack)
 	}
 	if (stack.length > 0) {
 		const nextCell = stack.shift()
-		collapseNeighbors(array, nextCell, stack)
+		collapseNeighbors(array, nextCell, backtrack, stack)
 	}
 }
 
-function findSuitableOption(array, cell, backtrack) {
+function assignSuitableOption(array, cell, backtrack) {
 	const options = TILES.filter(option => 
 		cell.accepts.every(
 			(directionalOption, i) => directionalOption.includes(option.is[i])
 		)
 	)
 
-	if (options.length === 0) {
-		if(backtrack.stack.length > 0) {
-			const revertCount = Math.min(Math.floor(backtrack.cursor), backtrack.stack.length)
-			const [reset] = backtrack.stack.splice(backtrack.stack.length - revertCount)
-			backtrack.cursor += 1
-			throw JSON.parse(reset)
-		}
-		console.log({cell, options})
+	if (options.length === 0)
 		throw new Error('No suitable options')
-	}
 
 	backtrack.stack.push(JSON.stringify(array))
-	backtrack.cursor = Math.max(1, backtrack.cursor - 0.1)
 	
 	const randomOption = options[Math.floor(Math.random() * options.length)]
-	return randomOption
+	cell.tile = randomOption
 }
 
 function createNewGrid([width, height]) {

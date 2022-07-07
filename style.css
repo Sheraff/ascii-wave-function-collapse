@@ -4,4 +4,5 @@ body {
 	color: white;
 	touch-action: none;
 	font-size: min(3vw, 3.9vh);
+	font-family: monospace;
 }
